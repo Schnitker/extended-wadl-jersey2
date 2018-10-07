@@ -1,0 +1,29 @@
+buildscript {
+    repositories { jcenter() }
+    dependencies {
+        classpath 'se.transmode.gradle:gradle-docker:1.2'
+    }
+}
+
+apply plugin: 'application'
+mainClassName = "com.ceyoniq.renditionserver.container.Main"
+
+apply plugin: 'docker'    
+
+configure(rootProject) {
+
+	// docker daemon:          /usr/local/bin/docker -d -D -g /var/lib/docker -H unix:// -H tcp
+	//  registry:             docker run -p 5000:5000 -d registry
+
+    distDocker {
+        exposePort 8192
+        setEnvironment ( 'JAVA_HOME', '/usr/lib/jvm/java-7-openjdk-amd64/jre' )
+    }
+
+    docker {
+         useApi true
+         baseImage "java:7-jre"
+         hostUrl 'http://10.1.151.30:2375'
+         registry 'http://10.1.151.30:5000'
+    }
+}

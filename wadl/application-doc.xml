@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<applicationDocs targetNamespace="http://wadl.dev.java.net/2009/02">
+    
+    <doc xml:lang="en" title="The Person Service REST API documentation">
+       
+       <![CDATA[
+        
+        <p> This document describes the REST API and resources provided by the Person Service.         
+        The REST APIs are for developers who want to integrate the Person Service into their application 
+        and for administrators who want to script interactions with the Person Service.</p>
+        
+        <p>Because the REST API is based on open standards, you can use any web development language to access the API.</p>
+        
+		<br /> Base REST URI: <strong> http://hostname/ </strong>        
+        ]]>
+    </doc>
+
+</applicationDocs>

@@ -1,0 +1,49 @@
+/**
+ * Adds eclipse project filter
+ */
+
+apply plugin: 'eclipse'
+ 
+eclipse {
+    project {
+        // add gradle nature
+        file {
+            withXml { xmlProvider ->
+                Node project = xmlProvider.asNode()
+                // natures
+                Node natures = project.find { it.name() == 'natures' }
+                natures.appendNode('nature', 'org.eclipse.buildship.core.gradleprojectnature' )
+                // buildSpec
+                Node buildSpec = project.find { it.name() == 'buildSpec' }
+                Node buildCommand = buildSpec.appendNode('buildCommand')
+                buildCommand.appendNode('name', 'org.eclipse.buildship.core.gradleprojectbuilder' )
+                buildCommand.appendNode('arguments', '')
+            }
+        }
+        
+        eclipseProject << {
+            File f = file(".settings/gradle.prefs")
+            if ( !f.exists()) {
+
+                f.write (
+"""{
+      "1.0": {
+        "project_path": ":${project.name}",
+        "project_dir": "${project.projectDir}",
+        "connection_project_dir": "${rootProject.projectDir}",
+        "connection_gradle_user_home": null,
+        "connection_gradle_distribution": "GRADLE_DISTRIBUTION(WRAPPER)",
+        "connection_java_home": null,
+        "connection_jvm_arguments": "",
+        "connection_arguments": ""
+      }
+}""".replace("\\", "\\\\") )
+            }
+
+        }
+        cleanEclipseProject << {
+            File f = file(".settings/gradle.prefs")
+            if ( f.exists() ) f.delete()
+        }
+    }
+}

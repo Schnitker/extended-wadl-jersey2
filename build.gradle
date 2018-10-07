@@ -1,0 +1,147 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+
+repositories { 
+    mavenCentral()
+}
+
+ext {
+    jersey_ver   = '2.27'
+	jackson_ver  = '2.8.11'
+}
+
+dependencies {
+	
+	compile      "org.glassfish.jersey.core:jersey-server:${jersey_ver}"
+	runtime      "org.glassfish.jersey.inject:jersey-hk2:${jersey_ver}"
+    testCompile  "org.glassfish.jersey.core:jersey-client:${jersey_ver}"
+}
+
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//   REST Documentation
+// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+configurations {
+    jaxDoclet
+    xslt
+}
+ 
+dependencies {
+
+    jaxDoclet  sourceSets.test.runtimeClasspath    
+    jaxDoclet  "org.glassfish.jersey.ext:jersey-wadl-doclet:${jersey_ver}"
+    // java >= 9
+	//jaxDoclet  "javax.activation:javax.activation-api:1.2.0"
+	//jaxDoclet  "javax.xml.bind:jaxb-api:2.3.0"
+	//jaxDoclet  "org.glassfish.jaxb:jaxb-runtime:2.3.0.1"
+    
+    xslt  sourceSets.main.runtimeClasspath
+    xslt  'xerces:xercesImpl:2.11.0'
+    xslt  'xalan:xalan:2.7.1'
+}
+
+// variables
+def taskPackage     = 'com.github.schnitker.extwadl.tasks'
+def restSourceDir   = 'src/test/java'
+def restClassesDir  = sourceSets.test.java.outputDir
+def wadlRelDir      = file ( 'wadl' )
+def wadlDir         = file ( wadlRelDir.absolutePath )
+
+def schemaFile      = new File ( wadlDir, 'schema.xsd' )
+def resourceDocXml  = new File ( wadlDir, 'resourcedoc.xml' )
+def applicationWadl = new File ( wadlDir, 'application.wadl' )
+def htmlApi         = new File ( wadlDir, 'rest-api.html' )
+
+def applicationDocXml  = new File ( wadlDir, 'application-doc.xml' )
+def wadlDocumentationXsl  = new File ( wadlDir, 'wadl_documentation.xsl' )
+
+
+task schemagen( type:JavaExec, dependsOn: 'testClasses' ) {
+    description = 'generated schema.xsd'
+    
+    ext.classFiles = fileTree( restClassesDir ) {
+                         include '**/Rs*.class'
+                     }
+    
+    def List<String> classArgs = new ArrayList<String>();
+    
+    classFiles.each() {
+        def cls =restClassesDir.toPath().relativize( it.toPath() ).toFile().toString().replace("\\", ".").replace("/", ".").replace(".class", "")
+        classArgs.add(cls);
+    }
+    
+    inputs.files classFiles
+    outputs.file schemaFile
+    
+    main       = taskPackage + '.SchemaGen'
+    classpath  = sourceSets.test.runtimeClasspath
+    workingDir = getBuildDir();
+    args       = [ '-o', schemaFile ] + classArgs
+
+    // jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+
+    doLast {
+        assert schemaFile.exists()
+    }
+}
+
+task generateResourceXml( type: Task, dependsOn: 'classes' ) {
+
+    inputs.files fileTree( restSourceDir ) {
+                     include '**/Rs*.java'
+                 }
+    outputs.file resourceDocXml
+
+	doLast {
+		ant.javadoc ( classpath: configurations.testRuntimeClasspath.asPath ) {
+
+			fileset(dir: restSourceDir ) { 
+			    include(name: '**/Rs*.java') 
+			}
+			doclet ( name: "org.glassfish.jersey.wadl.doclet.ResourceDoclet",
+			         path : configurations.jaxDoclet.asPath ) {
+			    
+			    param( name: "-output", value: resourceDocXml.toString() )
+			}
+		}
+	}
+}
+
+task generateApplicationWadl( type:JavaExec, dependsOn: [ 'schemagen', 'generateResourceXml' ] ) {
+    
+    inputs.files schemaFile, applicationDocXml, wadlDocumentationXsl
+    outputs.file applicationWadl
+    
+    main       = taskPackage + '.GenerateWadlTask'
+    classpath  = sourceSets.main.runtimeClasspath + sourceSets.test.runtimeClasspath
+    workingDir = wadlDir
+
+    args = [ "com.github.schnitker.extwadl.sample" ]
+    
+	// jaxb
+    // jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
+}
+
+task generateRestHtml( type:JavaExec, dependsOn: 'generateApplicationWadl' ) {
+    
+    inputs.files applicationWadl, applicationDocXml, wadlDocumentationXsl
+    outputs.file htmlApi
+   
+    // generate html page
+    main = taskPackage + '.XsltTransform'
+    classpath = configurations.xslt
+    workingDir = wadlDir
+    args = [ htmlApi,
+             "wadl_documentation.xsl",
+             "application.wadl",
+           ]
+}
+
+clean {
+    delete resourceDocXml
+    delete applicationWadl
+    delete htmlApi
+}
+
+// assemble generates the rest api
+assemble.dependsOn generateRestHtml
