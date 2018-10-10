@@ -14,6 +14,12 @@ dependencies {
 	
 	compile      "org.glassfish.jersey.core:jersey-server:${jersey_ver}"
 	runtime      "org.glassfish.jersey.inject:jersey-hk2:${jersey_ver}"
+	
+    if (JavaVersion.current().isJava9Compatible()) {
+       compile  "javax.xml.bind:jaxb-api:2.3.1"
+       runtime  "org.glassfish.jaxb:jaxb-runtime:2.3.1"
+    }
+	
     testCompile  "org.glassfish.jersey.core:jersey-client:${jersey_ver}"
 }
 
@@ -30,10 +36,6 @@ dependencies {
 
     jaxDoclet  sourceSets.test.runtimeClasspath    
     jaxDoclet  "org.glassfish.jersey.ext:jersey-wadl-doclet:${jersey_ver}"
-    // java >= 9
-	//jaxDoclet  "javax.activation:javax.activation-api:1.2.0"
-	//jaxDoclet  "javax.xml.bind:jaxb-api:2.3.0"
-	//jaxDoclet  "org.glassfish.jaxb:jaxb-runtime:2.3.0.1"
     
     xslt  sourceSets.main.runtimeClasspath
     xslt  'xerces:xercesImpl:2.11.0'
@@ -85,7 +87,7 @@ task schemagen( type:JavaExec, dependsOn: 'testClasses' ) {
     }
 }
 
-task generateResourceXml( type: Task, dependsOn: 'classes' ) {
+task generateResourceXml( type: Task, dependsOn: [ 'schemagen', 'testClasses' ] ) {
 
     inputs.files fileTree( restSourceDir ) {
                      include '**/Rs*.java'
@@ -138,6 +140,7 @@ task generateRestHtml( type:JavaExec, dependsOn: 'generateApplicationWadl' ) {
 }
 
 clean {
+    delete schemaFile
     delete resourceDocXml
     delete applicationWadl
     delete htmlApi
